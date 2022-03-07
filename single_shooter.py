@@ -11,12 +11,6 @@ from scipy.integrate import solve_ivp
 from scipy.optimize import fsolve
 
 
-plt.style.use('seaborn-poster')
-
-# function to integrate
-F = lambda t, s: \
-  np.dot(np.array([[0,1],[0,-9.8/s[1]]]),s)
-  
 def f(t, s, mu):
   '''
   Differentiates the state and STM
@@ -74,23 +68,52 @@ def f(t, s, mu):
   
   return F
 
-# initial conditions
-t_span = np.linspace(0, 5, 100)
-y0 = 0
-v0 = 25
-t_eval = np.linspace(0, 5, 10)
+
+###############################################################################
+
 
 # constants
-tol    = 1e-6
-mu     = 0.2
+tol    = 1*10**-12
 
-# initial position and velocity
-x0     = -1.01
+# initial time
+t0     = 0.0
+
+# time step
+dt     = 0.0001
+
+# ------------------ Matt conditions ------------------ #
+
+# # fake mu
+# mu     = 0.2
+
+# # initial state
+# x0     = -1.01
+# y0     = 0.0
+# z0     = 0.58
+# vx0    = 0.0
+# vy0    = 0.413250
+# vz0    = 0.0
+
+# # final time
+# tf     = 1.3464*2
+
+# ------------------ JPL conditions ------------------ #
+
+# Earth - Sun mu
+mu     = 1.215058560962404*10**-2
+
+# initial state
+x0     = 8.2339*10**-1
 y0     = 0.0
-z0     = 0.58
-vx0    = 0.0
-vy0    = 0.413250
-vz0    = 0.0
+z0     = 9.8941*10**-4
+vx0    = -2.3545*10**-15
+vy0    = 1.2634*10**-1
+vz0    = 2.2367*10**-16
+
+# final time
+tf = 2.743
+
+# ---------------------------------------------------- #
 
 # initial state
 state0 = np.array([x0, y0, z0, vx0, vy0, vz0])
@@ -106,70 +129,38 @@ state0 = np.concatenate([state0, phi0[0]])
 t0     = 0.0
 
 # time step
-dt     = 0.00001
-
-# final time
-tf     = 1.3464*2
-# tf = 3.39
-
-# differential correction process
-xdd    = 1
-zdd    = 1
-itr    = 0
-states = []
+dt     = 0.0001
 
 # time span from t0 to tf in increments of dt
 tspan = np.arange(t0, tf, dt)
 
-def objective(v0):
+
+def objective(state0):
     sol = solve_ivp(lambda t, y: f(t, y, mu), (t0, tf), state0,
                     t_eval = tspan, rtol = tol, atol = tol)
-    y = sol.y[0]
-    return y[-1] - y
-
-
-def newton_method(function, x0, step_size, tolerance, mu):
-    '''
-    Determines the roots of a non-linear single variable function using 
-    derivative estimation and Taylor Series Expansion
-    Args:
-        x0 - initial condition estimate
-        tolerance - the tolerance for convergence
-        step_size - determines the size of delta x
-    '''
     
-    tolerance = np.array([10**-12]*42)
+    y0 = []
+    for i in sol.y:
+        y0.append(i[0])
+    y0 = np.array(y0)
     
-    f0        = f(x0, mu)
-    f1        = f(x0 + step_size, mu)
-    residual  = abs(f0 - f1)
-    print(residual)
-    iteration = 1
-    fx        = (f(x0 + step_size, mu) - f0) / step_size
-    
-    while abs(np.linalg.norm(residual)) > abs(np.linalg.norm(tolerance)):
-        x1        = x0 + ((0 - f0)/fx)
-        f1        = f(x1, mu)
-        residual  = abs(f1)
-        f0        = f1
-        x0        = x1
-        fx        = (f(x0 + step_size, mu) - f0) / step_size
-        iteration = iteration + 1
-        print(iteration)
+    y = []
+    for j in sol.y:
+        y.append(j[-1])
+    y = np.array(y)
         
-    return x1
-
-# x = newton_method(f, state0, 0.01, 1*10**-12, mu)
+    return y - y0
 
 # use fsolve to correct the initial guess
-# v0 = fsolve(objective, state0)
+x = fsolve(objective, state0)
+print(x)
 
 # use solve_ivp witht he corrected initial conditions to integrate over time
 sol = solve_ivp(lambda t, y: f(t, y, mu), (t0, tf), x,
                 t_eval = tspan, rtol = tol, atol = tol)
 
-# plt.plot(sol.y[0], sol.y[1])
-# plt.xlabel('time (s)')
-# plt.ylabel('altitude (m)')
-# plt.title(f'root finding v={v0} m/s')
-# plt.show()
+x1, y1 = sol.y[0], sol.y[1]
+        
+plt.figure(figsize = (10, 8))
+plt.plot(x1, y1)
+plt.show()
